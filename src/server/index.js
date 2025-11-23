@@ -117,19 +117,14 @@ class TmanServer {
       socket.on('authenticate', (payload) => {
         const correctPin = process.env.PIN || '1234';
         const { pin } = typeof payload === 'object' && payload ? payload : { pin: payload };
-        const storedPubkey = terminalState.pubkeys.get(socket.id) || null;
-        const whitelistOk = WHITELIST.length === 0 || (storedPubkey && WHITELIST.includes(storedPubkey));
-        if (!whitelistOk) {
-          socket.emit('auth-failed', 'Pubkey not allowed');
-          return;
-        }
+        // PIN is second factor only; whitelist was enforced at register-pubkey time
         if (pin === correctPin) {
           authenticated = true;
           const authTime = Date.now();
           terminalState.lastAuthTime = authTime;
           terminalState.authenticated.set(socket.id, authTime);
           socket.emit('auth-success');
-          console.log('Authentication successful', storedPubkey ? `for ${storedPubkey}` : '');
+          console.log('Authentication successful');
         } else {
           socket.emit('auth-failed', 'Invalid PIN');
         }
