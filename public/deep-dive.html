@@ -332,48 +332,6 @@
         
         /* PIN Entry Overlay */
 
-        .user-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-primary);
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-            min-width: 200px;
-            display: none;
-            flex-direction: column;
-            z-index: 1500;
-        }
-
-        .user-menu.visible {
-            display: flex;
-        }
-
-        .user-menu-header {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-primary);
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            word-break: break-all;
-        }
-
-        .user-menu-item {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-primary);
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .user-menu-item:last-child {
-            border-bottom: none;
-        }
-
-        .user-menu-item:hover {
-            background: var(--accent-light);
-            color: var(--accent-primary);
-        }
-
         .login-overlay {
             position: fixed;
             inset: 0;
@@ -801,6 +759,11 @@
                                 <span class="tmux-cmd-key">⌃B S</span>
                                 <span class="tmux-cmd-desc">List Sessions</span>
                             </div>
+
+                                <div class="tmux-cmd" data-cmd="logout" id="tmux-logout">
+                                    <span class="tmux-cmd-key">logout</span>
+                                    <span class="tmux-cmd-desc" id="tmux-user-npub">Not signed in</span>
+                                </div>
                             <div class="tmux-cmd" data-cmd="windows">
                                 <span class="tmux-cmd-key">⌃B W</span>
                                 <span class="tmux-cmd-desc">List Windows</span>
@@ -884,10 +847,6 @@
                 <div id="connection-status" class="connection-status connecting">
                     <span class="status-dot"></span>
                     <span>Connecting...</span>
-                    <div id="user-menu" class="user-menu">
-                        <div class="user-menu-header" id="user-menu-header">Not signed in</div>
-                        <div class="user-menu-item" id="user-menu-logout">Log out</div>
-                    </div>
                 </div>
             </div>
             <div class="terminal-container">
@@ -934,9 +893,8 @@
                 this.callbacks = [];
                 this.token = null;
                 this.metadata = { name: 'tman', url: window.location.origin };
-                this.userMenu = document.getElementById('user-menu');
-                this.userMenuHeader = document.getElementById('user-menu-header');
-                this.userMenuLogout = document.getElementById('user-menu-logout');
+                this.logoutButton = document.getElementById('tmux-logout');
+                this.userNpubLabel = document.getElementById('tmux-user-npub');
                 this.connectionStatus = document.getElementById('connection-status');
                 this.pool = new RelayPool();
             }
@@ -968,11 +926,8 @@
                 if (this.btnBunker) {
                     this.btnBunker.addEventListener('click', () => this.loginBunker());
                 }
-                if (this.userMenuLogout) {
-                    this.userMenuLogout.addEventListener('click', () => this.logout());
-                }
-                if (this.connectionStatus) {
-                    this.connectionStatus.addEventListener('click', () => this.toggleMenu());
+                if (this.logoutButton) {
+                    this.logoutButton.addEventListener('click', () => this.logout());
                 }
             }
 
@@ -1094,15 +1049,9 @@
             }
 
 
-            toggleMenu() {
-                if (!this.userMenu) return;
-                this.userMenu.classList.toggle('visible');
-            }
-
             updateMenu(token) {
-                if (!this.userMenuHeader) return;
                 const npub = token?.pubkey ? (nip19?.npubEncode ? nip19.npubEncode(token.pubkey) : token.pubkey) : 'unknown';
-                this.userMenuHeader.textContent = npub;
+                if (this.userNpubLabel) this.userNpubLabel.textContent = npub;
             }
 
             logout() {
@@ -1110,8 +1059,7 @@
                     localStorage.removeItem(this.tokenKey);
                 } catch (_) {}
                 this.token = null;
-                if (this.userMenu) this.userMenu.classList.remove('visible');
-                if (this.userMenuHeader) this.userMenuHeader.textContent = 'Not signed in';
+                if (this.userNpubLabel) this.userNpubLabel.textContent = 'Not signed in';
                 if (this.overlay) this.overlay.classList.remove('hidden');
                 this.callbacks = [];
                 // Optionally clear PIN auth state
@@ -1908,10 +1856,14 @@
 
             updateConnectionStatus(status, text) {
                 this.connectionStatus.className = `connection-status ${status}`;
+                const npubLabel = this.userNpubLabel?.textContent || '';
                 this.connectionStatus.innerHTML = `
                     <span class="status-dot"></span>
                     <span>${text}</span>
                 `;
+                if (this.userNpubLabel && npubLabel) {
+                    this.userNpubLabel.textContent = npubLabel;
+                }
             }
         }
 
