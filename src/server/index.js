@@ -39,6 +39,14 @@ class TmanServer {
 
   setupRoutes() {
     const deepDivePath = path.join(process.cwd(), 'public', 'deep-dive.html');
+    const whitelistKeys = (process.env.WHITELIST_KEYS || '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    this.app.get('/auth-config', (_req, res) => {
+      res.json({ whitelistKeys });
+    });
 
     // Serve Deep Dive directly for root or explicit path
     this.app.get(['/', '/deep-dive'], (req, res) => {
@@ -77,15 +85,21 @@ class TmanServer {
         socket.emit('auth-required');
       }
 
-      socket.on('authenticate', (pin) => {
+      socket.on('authenticate', (payload) => {
         const correctPin = process.env.PIN || '1234';
+        const { pin, pubkey } = typeof payload === 'object' && payload ? payload : { pin: payload, pubkey: null };
+        const whitelistOk = WHITELIST.length === 0 || (pubkey && WHITELIST.includes(pubkey));
+        if (!whitelistOk) {
+          socket.emit('auth-failed', 'Pubkey not allowed');
+          return;
+        }
         if (pin === correctPin) {
           authenticated = true;
           const authTime = Date.now();
           terminalState.lastAuthTime = authTime;
           terminalState.authenticated.set(socket.id, authTime);
           socket.emit('auth-success');
-          console.log('Authentication successful');
+          console.log('Authentication successful', pubkey ? `for ${pubkey}` : '');
         } else {
           socket.emit('auth-failed', 'Invalid PIN');
         }

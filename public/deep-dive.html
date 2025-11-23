@@ -1618,7 +1618,7 @@
                     if (pin) {
                         this.pinError.textContent = '';
                         this.pinSubmit.disabled = true;
-                        this.socket.emit('authenticate', pin);
+                        this.socket.emit('authenticate', { pin, pubkey: this.token?.pubkey || null });
                     }
                 };
                 
