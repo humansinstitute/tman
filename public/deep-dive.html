@@ -869,7 +869,7 @@
 
     <script type="module">
         import { NostrConnectSigner } from '/vendor/bunker-client.js';
-        import { getEventHash, verifySignature } from 'https://esm.sh/nostr-tools@2.7.0';
+        import { getEventHash, verifyEvent } from 'https://esm.sh/nostr-tools@2.7.0';
         
         class LoginManager {
             constructor() {
@@ -975,7 +975,7 @@
                 event.pubkey = await window.nostr.getPublicKey();
                 const signed = await window.nostr.signEvent(event);
                 signed.id = signed.id || getEventHash(signed);
-                if (!verifySignature(signed)) {
+                if (!verifyEvent(signed)) {
                     throw new Error('Signature verification failed');
                 }
                 return {
@@ -1001,7 +1001,7 @@
                 event.pubkey = await signer.getPublicKey();
                 const signed = await signer.signEvent(event);
                 signed.id = signed.id || getEventHash(signed);
-                if (!verifySignature(signed)) {
+                if (!verifyEvent(signed)) {
                     throw new Error('Signature verification failed');
                 }
                 try {
@@ -1022,7 +1022,7 @@
             verifyStored(token) {
                 try {
                     if (!token?.event) return false;
-                    return verifySignature(token.event);
+                    return verifyEvent(token.event);
                 } catch (_) {
                     return false;
                 }
