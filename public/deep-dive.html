@@ -914,7 +914,7 @@
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.js"></script>
 
     <script type="module">
-        import { NostrConnectSigner } from '/vendor/bunker-client.js';
+        import { NostrConnectSigner, RelayPool } from '/vendor/bunker-client.js';
         import { getEventHash, verifyEvent, nip19 } from 'https://esm.sh/nostr-tools@2.7.0';
         
         class LoginManager {
@@ -934,6 +934,7 @@
                 this.userMenuHeader = document.getElementById('user-menu-header');
                 this.userMenuLogout = document.getElementById('user-menu-logout');
                 this.connectionStatus = document.getElementById('connection-status');
+                this.pool = new RelayPool();
             }
 
             onAuthenticated(cb) {
@@ -1053,7 +1054,8 @@
                     throw new Error('Paste a valid bunker code (bunker://…)');
                 }
                 const signer = await NostrConnectSigner.fromBunkerURI(code, {
-                    metadata: this.metadata
+                    metadata: this.metadata,
+                    pool: this.pool
                 });
                 const challenge = this.createChallenge();
                 let event = this.buildChallengeEvent(challenge);
