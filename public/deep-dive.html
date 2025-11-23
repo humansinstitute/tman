@@ -1052,7 +1052,7 @@
                         break;
                     case 'tman':
                         // Send tman command directly (uses TERMINALCMD from server env)
-                        this.socket.emit('terminal-input', 'tman');
+                        this.socket.emit('terminal-input', 'tman\\r');
                         break;
                     case 'copy':
                         // Copy terminal content to clipboard
