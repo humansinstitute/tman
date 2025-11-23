@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+// tman tmux-based CLI entrypoint
+require('../tman-cli.js');
