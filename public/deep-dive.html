@@ -898,6 +898,8 @@
                 this.connectionStatus = document.getElementById('connection-status');
                 this.pool = new RelayPool();
                 this.whitelist = [];
+                this.socket = null;
+                this.registered = false;
                 this.whitelist = [];
             }
 
@@ -1004,10 +1006,36 @@
                 }
             }
 
-            isAllowed(pubkey) {
-                if (!this.whitelist || this.whitelist.length === 0) return true;
-                return !!pubkey && this.whitelist.includes(pubkey);
+
+            normalizeKey(key) {
+                if (!key || typeof key !== 'string') return null;
+                const trimmed = key.trim();
+                if (!trimmed) return null;
+                if (trimmed.startsWith('npub')) {
+                    try {
+                        const decoded = nip19.decode(trimmed);
+                        if (decoded?.data && typeof decoded.data === 'string') {
+                            return decoded.data.toLowerCase();
+                        }
+                    } catch (_) {
+                        return null;
+                    }
+                }
+                return trimmed.toLowerCase();
             }
+
+            isAllowed(pubkey) {
+                const normalized = this.normalizeKey(pubkey);
+                if (!this.whitelist || this.whitelist.length === 0) return true;
+                return !!normalized && this.whitelist.includes(normalized);
+            }
+
+            emitRegister(socket) {
+                if (!socket || !this.token?.pubkey || this.registered) return;
+                socket.emit('register-pubkey', this.token.pubkey);
+                this.registered = true;
+            }
+
 
             createChallenge() {
                 const bytes = new Uint8Array(16);
@@ -1141,7 +1169,8 @@
         }
 
         class TerminalClient {
-            constructor() {
+            constructor(login) {
+                this.login = login;
                 this.terminal = null;
                 this.socket = null;
                 this.connectionStatus = document.getElementById('connection-status');
@@ -1830,6 +1859,7 @@
             setupSocket() {
                 // Connect to the terminal namespace
                 this.socket = io('/terminal');
+                this.registered = false;
 
                 this.socket.on('connect', () => {
                     console.log('Connected to terminal socket');

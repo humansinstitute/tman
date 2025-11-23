@@ -9,10 +9,28 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const pty = require('node-pty');
+const { nip19 } = require('nostr-tools');
+
+const normalizeKey = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('npub')) {
+    try {
+      const decoded = nip19.decode(trimmed);
+      if (decoded?.data && typeof decoded.data === 'string') {
+        return decoded.data.toLowerCase();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+  return trimmed.toLowerCase();
+};
 
 const WHITELIST = (process.env.WHITELIST_KEYS || '')
   .split(',')
-  .map((v) => v.trim())
+  .map((v) => normalizeKey(v))
   .filter(Boolean);
 
 class TmanServer {
@@ -44,13 +62,8 @@ class TmanServer {
 
   setupRoutes() {
     const deepDivePath = path.join(process.cwd(), 'public', 'deep-dive.html');
-    const whitelistKeys = (process.env.WHITELIST_KEYS || '')
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean);
-
     this.app.get('/auth-config', (_req, res) => {
-      res.json({ whitelistKeys });
+      res.json({ whitelistKeys: WHITELIST });
     });
 
     // Serve Deep Dive directly for root or explicit path
@@ -91,8 +104,9 @@ class TmanServer {
         socket.emit('auth-required');
       }
 
-      socket.on('register-pubkey', (pubkey) => {
-        const ok = WHITELIST.length === 0 || (typeof pubkey === 'string' && WHITELIST.includes(pubkey));
+      socket.on('register-pubkey', (pubkeyRaw) => {
+        const pubkey = normalizeKey(pubkeyRaw);
+        const ok = WHITELIST.length === 0 || (pubkey && WHITELIST.includes(pubkey));
         if (!ok) {
           socket.emit('auth-failed', 'Pubkey not allowed');
           return;
