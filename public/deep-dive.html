@@ -869,7 +869,7 @@
 
     <script type="module">
         import { NostrConnectSigner } from '/vendor/bunker-client.js';
-        import { getEventHash, verifyEvent } from 'https://esm.sh/nostr-tools@2.7.0';
+        import { getEventHash, verifyEvent, nip19 } from 'https://esm.sh/nostr-tools@2.7.0';
         
         class LoginManager {
             constructor() {
@@ -935,6 +935,8 @@
                 localStorage.setItem(this.tokenKey, JSON.stringify(token));
                 this.overlay.classList.add('hidden');
                 this.setError('');
+                const npub = token?.pubkey ? (nip19?.npubEncode ? nip19.npubEncode(token.pubkey) : token.pubkey) : 'unknown';
+                console.log(`[login] authenticated as ${npub}`);
                 this.callbacks.forEach((cb) => cb(token));
             }
 
