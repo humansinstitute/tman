@@ -712,8 +712,8 @@
             <div class="login-actions">
                 <button id="login-extension" class="login-button">Sign with Nostr extension</button>
                 <div class="bunker-row">
-                    <label for="bunker-npub" style="font-size: 0.9rem; color: var(--text-muted);">Paste bunker code (npub or bunker auth string)</label>
-                    <input id="bunker-npub" type="text" placeholder="npub1... or bunker://..." aria-label="Bunker code">
+                    <label for="bunker-npub" style="font-size: 0.9rem; color: var(--text-muted);">Paste bunker auth code</label>
+                    <input id="bunker-npub" type="text" placeholder="bunker://..." aria-label="Bunker auth code">
                     <button id="login-bunker" class="login-button secondary">Use bunker</button>
                 </div>
                 <div id="login-error" class="login-error"></div>
@@ -970,8 +970,8 @@
 
             loginBunker() {
                 const code = (this.bunkerInput?.value || '').trim();
-                if (!code || (!code.startsWith('npub') && !code.startsWith('bunker'))) {
-                    this.setError('Paste a valid bunker code (npub… or bunker://…)');
+                if (!code || !code.startsWith('bunker')) {
+                    this.setError('Paste a valid bunker code (bunker://…)');
                     return;
                 }
                 const token = {
