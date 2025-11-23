@@ -331,6 +331,49 @@
         }
         
         /* PIN Entry Overlay */
+
+        .user-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            min-width: 200px;
+            display: none;
+            flex-direction: column;
+            z-index: 1500;
+        }
+
+        .user-menu.visible {
+            display: flex;
+        }
+
+        .user-menu-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-primary);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+
+        .user-menu-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .user-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-menu-item:hover {
+            background: var(--accent-light);
+            color: var(--accent-primary);
+        }
+
         .login-overlay {
             position: fixed;
             inset: 0;
@@ -509,6 +552,7 @@
         }
 
         .connection-status {
+            position: relative;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
@@ -608,6 +652,7 @@
             }
             
             .connection-status {
+            position: relative;
                 order: 2;
                 width: 100%;
                 margin-top: 0.5rem;
@@ -633,6 +678,7 @@
             }
             
             .connection-status {
+            position: relative;
                 font-size: 0.75rem;
                 padding: 0.25rem 0.5rem;
             }
@@ -884,6 +930,10 @@
                 this.callbacks = [];
                 this.token = null;
                 this.metadata = { name: 'tman', url: window.location.origin };
+                this.userMenu = document.getElementById('user-menu');
+                this.userMenuHeader = document.getElementById('user-menu-header');
+                this.userMenuLogout = document.getElementById('user-menu-logout');
+                this.connectionStatus = document.getElementById('connection-status');
             }
 
             onAuthenticated(cb) {
@@ -913,6 +963,12 @@
                 if (this.btnBunker) {
                     this.btnBunker.addEventListener('click', () => this.loginBunker());
                 }
+                if (this.userMenuLogout) {
+                    this.userMenuLogout.addEventListener('click', () => this.logout());
+                }
+                if (this.connectionStatus) {
+                    this.connectionStatus.addEventListener('click', () => this.toggleMenu());
+                }
             }
 
             setError(msg) {
@@ -937,6 +993,7 @@
                 this.setError('');
                 const npub = token?.pubkey ? (nip19?.npubEncode ? nip19.npubEncode(token.pubkey) : token.pubkey) : 'unknown';
                 console.log(`[login] authenticated as ${npub}`);
+                this.updateMenu(token);
                 this.callbacks.forEach((cb) => cb(token));
             }
 
@@ -1028,6 +1085,38 @@
                 } catch (_) {
                     return false;
                 }
+            }
+
+
+            toggleMenu() {
+                if (!this.userMenu) return;
+                this.userMenu.classList.toggle('visible');
+            }
+
+            updateMenu(token) {
+                if (!this.userMenuHeader) return;
+                const npub = token?.pubkey ? (nip19?.npubEncode ? nip19.npubEncode(token.pubkey) : token.pubkey) : 'unknown';
+                this.userMenuHeader.textContent = npub;
+            }
+
+            logout() {
+                try {
+                    localStorage.removeItem(this.tokenKey);
+                } catch (_) {}
+                this.token = null;
+                if (this.userMenu) this.userMenu.classList.remove('visible');
+                if (this.userMenuHeader) this.userMenuHeader.textContent = 'Not signed in';
+                if (this.overlay) this.overlay.classList.remove('hidden');
+                this.callbacks = [];
+                // Optionally clear PIN auth state
+                const pinInput = document.getElementById('pin-input');
+                const pinOverlay = document.getElementById('pin-overlay');
+                const pinError = document.getElementById('pin-error');
+                const pinSubmit = document.getElementById('pin-submit');
+                if (pinOverlay) pinOverlay.classList.remove('hidden');
+                if (pinError) pinError.textContent = '';
+                if (pinSubmit) pinSubmit.disabled = false;
+                if (pinInput) pinInput.value = '';
             }
 
             async loginExtension() {
