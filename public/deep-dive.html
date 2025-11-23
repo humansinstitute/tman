@@ -897,6 +897,8 @@
                 this.userNpubLabel = document.getElementById('tmux-user-npub');
                 this.connectionStatus = document.getElementById('connection-status');
                 this.pool = new RelayPool();
+                this.whitelist = [];
+                this.whitelist = [];
             }
 
             onAuthenticated(cb) {
@@ -908,12 +910,19 @@
 
             async init() {
                 this.bind();
+                await this.loadConfig();
                 const existing = this.getToken();
                 if (existing && this.isValid(existing) && this.verifyStored(existing)) {
                     this.refreshIfNeeded(existing);
-                    this.token = existing;
-                    this.overlay.classList.add('hidden');
-                    this.callbacks.forEach((cb) => cb(existing));
+                    if (this.isWhitelisted(existing.pubkey)) {
+                        this.token = existing;
+                        this.overlay.classList.add('hidden');
+                        this.callbacks.forEach((cb) => cb(existing));
+                    } else {
+                        this.clearToken();
+                        this.overlay.classList.remove('hidden');
+                        this.setError('Pubkey not allowed');
+                    }
                 } else {
                     this.overlay.classList.remove('hidden');
                 }
@@ -937,6 +946,27 @@
                 }
             }
 
+            clearToken() {
+                try {
+                    localStorage.removeItem(this.tokenKey);
+                } catch (_) {}
+            }
+
+            async loadConfig() {
+                try {
+                    const res = await fetch('/auth-config');
+                    const data = await res.json();
+                    this.whitelist = Array.isArray(data?.whitelistKeys) ? data.whitelistKeys : [];
+                } catch (_) {
+                    this.whitelist = [];
+                }
+            }
+
+            isWhitelisted(pubkey) {
+                if (!this.whitelist || this.whitelist.length === 0) return true;
+                return typeof pubkey === 'string' && this.whitelist.includes(pubkey);
+            }
+
             getToken() {
                 try {
                     const raw = localStorage.getItem(this.tokenKey);
@@ -947,6 +977,10 @@
             }
 
             saveToken(token) {
+                if (!this.isAllowed(token?.pubkey)) {
+                    this.setError('This pubkey is not allowed');
+                    return;
+                }
                 this.token = token;
                 localStorage.setItem(this.tokenKey, JSON.stringify(token));
                 this.overlay.classList.add('hidden');
@@ -968,6 +1002,11 @@
                     token.expiresAt = Date.now() + this.weekMs;
                     this.saveToken(token);
                 }
+            }
+
+            isAllowed(pubkey) {
+                if (!this.whitelist || this.whitelist.length === 0) return true;
+                return !!pubkey && this.whitelist.includes(pubkey);
             }
 
             createChallenge() {
@@ -1077,6 +1116,10 @@
                 this.setError('');
                 try {
                     const token = await this.signWithExtension();
+                    if (!this.isWhitelisted(token.pubkey)) {
+                        this.setError('Pubkey not allowed');
+                        return;
+                    }
                     this.saveToken(token);
                 } catch (err) {
                     this.setError(err?.message || 'Extension sign-in failed');
@@ -1086,7 +1129,13 @@
             loginBunker() {
                 this.setError('');
                 this.signWithBunker()
-                    .then((token) => this.saveToken(token))
+                    .then((token) => {
+                        if (!this.isWhitelisted(token.pubkey)) {
+                            this.setError('Pubkey not allowed');
+                            return;
+                        }
+                        this.saveToken(token);
+                    })
                     .catch((err) => this.setError(err?.message || 'Bunker sign-in failed'));
             }
         }

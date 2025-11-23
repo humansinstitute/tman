@@ -10,6 +10,11 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const pty = require('node-pty');
 
+const WHITELIST = (process.env.WHITELIST_KEYS || '')
+  .split(',')
+  .map((v) => v.trim())
+  .filter(Boolean);
+
 class TmanServer {
   constructor(port = process.env.PORT || 3000) {
     this.app = express();
@@ -64,7 +69,8 @@ class TmanServer {
   setupTerminalHandlers() {
     const terminalState = {
       lastAuthTime: null,
-      authenticated: new Map()
+      authenticated: new Map(),
+      pubkeys: new Map()
     };
 
     const PIN_TIMEOUT = parseInt(process.env.PIN_TIMEOUT, 10) || 45; // seconds
@@ -85,10 +91,20 @@ class TmanServer {
         socket.emit('auth-required');
       }
 
+      socket.on('register-pubkey', (pubkey) => {
+        const ok = WHITELIST.length === 0 || (typeof pubkey === 'string' && WHITELIST.includes(pubkey));
+        if (!ok) {
+          socket.emit('auth-failed', 'Pubkey not allowed');
+          return;
+        }
+        terminalState.pubkeys.set(socket.id, pubkey);
+      });
+
       socket.on('authenticate', (payload) => {
         const correctPin = process.env.PIN || '1234';
-        const { pin, pubkey } = typeof payload === 'object' && payload ? payload : { pin: payload, pubkey: null };
-        const whitelistOk = WHITELIST.length === 0 || (pubkey && WHITELIST.includes(pubkey));
+        const { pin } = typeof payload === 'object' && payload ? payload : { pin: payload };
+        const storedPubkey = terminalState.pubkeys.get(socket.id) || null;
+        const whitelistOk = WHITELIST.length === 0 || (storedPubkey && WHITELIST.includes(storedPubkey));
         if (!whitelistOk) {
           socket.emit('auth-failed', 'Pubkey not allowed');
           return;
@@ -99,7 +115,7 @@ class TmanServer {
           terminalState.lastAuthTime = authTime;
           terminalState.authenticated.set(socket.id, authTime);
           socket.emit('auth-success');
-          console.log('Authentication successful', pubkey ? `for ${pubkey}` : '');
+          console.log('Authentication successful', storedPubkey ? `for ${storedPubkey}` : '');
         } else {
           socket.emit('auth-failed', 'Invalid PIN');
         }
@@ -173,6 +189,7 @@ class TmanServer {
       socket.on('disconnect', () => {
         console.log('Terminal client disconnected');
         terminalState.authenticated.delete(socket.id);
+        terminalState.pubkeys.delete(socket.id);
 
         if (ptyProcess) {
           try {
